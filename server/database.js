@@ -121,59 +121,11 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  // return pool
-  //   .query(
-  //     `
-  // SELECT * FROM properties
-
-  // LIMIT $1
-  // `,
-  //     [limit]
-  //   )
-  //   .then(res => res.rows);
-
-  // {
-  //   city,
-  //   owner_id,
-  //   minimum_price_per_night,
-  //   maximum_price_per_night,
-  //   minimum_rating
-  // }
-
-  // let args = [limit];
-  // args.push(options.city || "%");
-  // args.push(options.owner_id || "%");
-  // args.push(options.minimum_price_per_night || "%");
-  // args.push(options.maximum_price_per_night || "%");
-  // args.push(options.minimum_rating || "%");
-  // console.log(args);
-
-  // return pool
-  //   .query(
-  //     `SELECT
-  //   properties.*,
-  //   AVG(property_reviews.rating)
-  // FROM properties
-  // JOIN property_reviews ON properties.id = property_reviews.property_id
-  // WHERE
-  //   city LIKE $2
-  //   AND owner_id LIKE $3
-  // GROUP BY
-  //   properties.id
-  // HAVING
-  //   AVG(property_reviews.rating) >= 4
-  // ORDER BY
-  //   cost_per_night ASC
-  // LIMIT $1;`,
-  //     args
-  //   )
-  //   .then(res => res.rows);
-
   const queryParams = [];
   let queryString = `
   SELECT properties.*, AVG(property_reviews.rating) as average_rating
   FROM properties
-  JOIN property_reviews ON properties.id = property_id
+  LEFT JOIN property_reviews ON properties.id = property_reviews.property_id
   `;
 
   queryParams.push(`%${options.city || ``}%`);
@@ -218,9 +170,72 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  // const propertyId = Object.keys(properties).length + 1;
+  // property.id = propertyId;
+  // properties[propertyId] = property;
+  // return Promise.resolve(property);
+
+  // {
+  //   owner_id: int,
+  //   title: string,
+  //   description: string,
+  //   thumbnail_photo_url: string,
+  //   cover_photo_url: string,
+  //   cost_per_night: string,
+  //   street: string,
+  //   city: string,
+  //   province: string,
+  //   post_code: string,
+  //   country: string,
+  //   parking_spaces: int,
+  //   number_of_bathrooms: int,
+  //   number_of_bedrooms: int
+  // }
+
+  let args = [property.owner_id, `${property.title}`, `${property.description}`, `${property.thumbnail_photo_url}`, `${property.cover_photo_url}`, property.cost_per_night, property.parking_spaces, property.number_of_bathrooms, property.number_of_bedrooms, `${property.country}`, `${property.street}`, `${property.city}`, `${property.province}`, `${property.post_code}`];
+  console.log(args);
+
+  return pool
+    .query(
+      `
+      INSERT INTO properties (
+        owner_id,
+        title,
+        description,
+        thumbnail_photo_url,
+        cover_photo_url,
+        cost_per_night,
+        parking_spaces,
+        number_of_bathrooms,
+        number_of_bedrooms,
+        country,
+        street,
+        city,
+        province,
+        post_code
+      )
+    VALUES
+      (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12,
+        $13,
+        $14
+      )
+      RETURNING *;
+      `,
+      args
+    )
+    .then(res => console.log(res));
+  // .then(res => res.rows);
 };
 exports.addProperty = addProperty;
