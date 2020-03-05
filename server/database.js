@@ -12,31 +12,6 @@ const pool = new Pool({
 
 pool.connect();
 
-// pool
-//   .query(
-//     `
-//     SELECT
-//       DISTINCT teachers.name AS teacher,
-//       cohorts.name AS cohort
-//     FROM assistance_requests
-//     JOIN teachers ON teacher_id = teachers.id
-//     JOIN students ON student_id = students.id
-//     JOIN cohorts ON students.cohort_id = cohorts.id
-//     WHERE
-//       cohorts.name LIKE '%' || $1 || '%'
-//     ORDER BY
-//       teachers.name;
-//     `,
-//     args
-//   )
-//   .then(res => {
-//     // console.log(res.rows);
-//     res.rows.forEach(output => {
-//       console.log(`${output.cohort}: ${output.teacher}`);
-//     });
-//   })
-//   .catch(err => console.error("query error", err.stack));
-
 /// Users
 
 /**
@@ -66,7 +41,6 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function(id) {
-  // return Promise.resolve(users[id]);
   return pool
     .query(
       `
@@ -110,17 +84,31 @@ exports.addUser = addUser;
  */
 const getAllReservations = function(guest_id, limit = 10) {
   // return getAllProperties(null, 2);
-  return pool
-    .query(
-      `
-      SELECT * FROM reservations
-      WHERE guest_id = '%' || $1 || '%'
-
-      LIMIT $2
+  return (
+    pool
+      .query(
+        `
+      SELECT
+        properties.*, reservations.*, AVG(property_reviews.rating) AS average_rating
+      FROM reservations
+      JOIN users ON guest_id = users.id
+      JOIN properties ON properties.id = reservations.property_id
+      JOIN property_reviews ON properties.id = property_reviews.property_id
+      WHERE
+        reservations.guest_id = $1
+        AND end_date > Now() :: date
+      GROUP BY
+        properties.id,
+        reservations.id
+      ORDER BY
+        start_date
+      LIMIT $2;
       `,
-      [guest_id, limit]
-    )
-    .then(res => res.rows);
+        [guest_id, limit]
+      )
+      // .then(res => console.log(res))
+      .then(res => res.rows)
+  );
 };
 exports.getAllReservations = getAllReservations;
 
