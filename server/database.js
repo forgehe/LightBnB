@@ -1,5 +1,41 @@
-const properties = require('./json/properties.json');
-const users = require('./json/users.json');
+const properties = require("./json/properties.json");
+const users = require("./json/users.json");
+
+const {Pool} = require("pg");
+
+const pool = new Pool({
+  user: "vagrant",
+  password: "123",
+  host: "localhost",
+  database: "lightbnb"
+});
+
+pool.connect();
+
+// pool
+//   .query(
+//     `
+//     SELECT
+//       DISTINCT teachers.name AS teacher,
+//       cohorts.name AS cohort
+//     FROM assistance_requests
+//     JOIN teachers ON teacher_id = teachers.id
+//     JOIN students ON student_id = students.id
+//     JOIN cohorts ON students.cohort_id = cohorts.id
+//     WHERE
+//       cohorts.name LIKE '%' || $1 || '%'
+//     ORDER BY
+//       teachers.name;
+//     `,
+//     args
+//   )
+//   .then(res => {
+//     // console.log(res.rows);
+//     res.rows.forEach(output => {
+//       console.log(`${output.cohort}: ${output.teacher}`);
+//     });
+//   })
+//   .catch(err => console.error("query error", err.stack));
 
 /// Users
 
@@ -9,17 +45,19 @@ const users = require('./json/users.json');
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithEmail = function(email) {
-  let user;
-  for (const userId in users) {
-    user = users[userId];
-    if (user.email.toLowerCase() === email.toLowerCase()) {
-      break;
-    } else {
-      user = null;
-    }
-  }
-  return Promise.resolve(user);
-}
+  return (
+    pool
+      .query(
+        `
+      SELECT * FROM users
+      WHERE email = $1
+      `,
+        [email.toLowerCase()]
+      )
+      // .then(res => console.log(res))
+      .then(res => res.rows[0])
+  );
+};
 exports.getUserWithEmail = getUserWithEmail;
 
 /**
@@ -28,22 +66,39 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function(id) {
-  return Promise.resolve(users[id]);
-}
+  // return Promise.resolve(users[id]);
+  return pool
+    .query(
+      `
+    SELECT * FROM users
+    WHERE id = $1
+    `,
+      [id]
+    )
+    .then(res => res.rows[0]);
+};
 exports.getUserWithId = getUserWithId;
-
 
 /**
  * Add a new user to the database.
  * @param {{name: string, password: string, email: string}} user
  * @return {Promise<{}>} A promise to the user.
  */
-const addUser =  function(user) {
-  const userId = Object.keys(users).length + 1;
-  user.id = userId;
-  users[userId] = user;
-  return Promise.resolve(user);
-}
+const addUser = function(user) {
+  // const userId = Object.keys(users).length + 1;
+  // user.id = userId;
+  // users[userId] = user;
+  // return Promise.resolve(user);
+  let args = [user.name, user.email, user.password];
+  return pool
+    .query(
+      `
+  INSERT INTO users (name, email, password) VALUES ($1, $2, $3)
+  RETURNING *;`,
+      args
+    )
+    .then(res => res.rows[0]);
+};
 exports.addUser = addUser;
 
 /// Reservations
@@ -54,8 +109,19 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
-}
+  // return getAllProperties(null, 2);
+  return pool
+    .query(
+      `
+      SELECT * FROM reservations
+      WHERE guest_id = '%' || $1 || '%'
+
+      LIMIT $2
+      `,
+      [guest_id, limit]
+    )
+    .then(res => res.rows);
+};
 exports.getAllReservations = getAllReservations;
 
 /// Properties
@@ -67,14 +133,19 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  const limitedProperties = {};
-  for (let i = 1; i <= limit; i++) {
-    limitedProperties[i] = properties[i];
-  }
-  return Promise.resolve(limitedProperties);
-}
-exports.getAllProperties = getAllProperties;
+  return pool
+    .query(
+      `
+  SELECT * FROM properties
 
+  LIMIT $1
+  `,
+      [limit]
+    )
+    .then(res => res.rows);
+};
+
+exports.getAllProperties = getAllProperties;
 
 /**
  * Add a property to the database
@@ -86,5 +157,5 @@ const addProperty = function(property) {
   property.id = propertyId;
   properties[propertyId] = property;
   return Promise.resolve(property);
-}
+};
 exports.addProperty = addProperty;
